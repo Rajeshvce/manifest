@@ -11,6 +11,7 @@ class ManifestHandler:
         self.service_manifest = ""
         self.sync_project = ""
         self.view_changes = False
+        self.add_project = []
         self.__setup_arg_parser()
         self.__parser_args()
         self.RevisionDict = {}
@@ -47,6 +48,14 @@ class ManifestHandler:
             action="store_true",
             required=False
         )
+        self.__parser.add_argument(
+            "-add",
+            dest="add_project",
+            nargs='+',
+            help="project names to be included int the service_manifest",
+            action="store",
+            required=False
+        )
 
     def __parser_args(self):
         args = self.__parser.parse_args()
@@ -54,6 +63,7 @@ class ManifestHandler:
         self.product_manifest = args.product_manifest
         self.sync_project = args.sync_project
         self.view_changes = args.view_changes
+        self.add_project = args.add_project
 
     def getRevision(self, projectPath):
         return self.RevisionDict[projectPath]
@@ -124,6 +134,8 @@ class ManifestHandler:
             xml_declaration=True,
             encoding="UTF-8"
         )
+        if self.add_project is not None:
+            self.add_projects_to_manifest()
 
     def check_output_manifest(self):
         print("================Begin comparing manifests===================")
@@ -179,6 +191,38 @@ class ManifestHandler:
                 print(change_log, end="")
 
         print("================ End comparing manifests ===================")
+
+    def add_projects_to_manifest(self):
+        product_parser = ET.XMLParser(
+                target=ET.TreeBuilder(insert_comments=True))
+        product_tree = ET.parse(self.product_manifest, product_parser)
+        product_root = product_tree.getroot()
+
+        service_parser = ET.XMLParser(
+                target=ET.TreeBuilder(insert_comments=True))
+        service_tree = ET.parse(self.service_manifest, service_parser)
+        service_root = service_tree.getroot()
+
+        service_project_paths = set()
+        for project in service_root.iter("project"):
+            path = project.attrib["path"]
+            service_project_paths.add(path)
+
+        for project in product_root.iter("project"):
+            path = project.attrib["path"]
+            if path in self.add_project:
+                if path not in service_project_paths:
+                    ET.SubElement(
+                            service_root, "project", attrib=project.attrib)
+                    print(f"'{path}' project added to the service_manifest")
+                else:
+                    print(f"'{path}' is already present in service_manifest")
+
+        service_tree.write(
+            self.service_manifest,
+            xml_declaration=True,
+            encoding="UTF-8"
+        )
 
 
 def main():
