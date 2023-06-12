@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 import sys
 import xml.etree.ElementTree as ET
 import subprocess
+from datetime import datetime
 
 
 class ManifestHandler:
@@ -160,6 +161,22 @@ class ManifestHandler:
                     project.attrib["upstream"] = self.getUpstream(path)
                 else:
                     project.set('upstream', self.getUpstream(path))
+
+        for elem in root.iter():
+            if (elem.tag == ET.Comment and
+                    elem.text and elem.text.startswith("Last Synced on")):
+                root.remove(elem)
+                break
+
+        current_datetime = datetime.now()
+        comment_text = f"Last Synced on: {current_datetime}"
+        comment = ET.Comment(comment_text)
+        empty_line = ET.ElementTree(ET.Element(None))
+        empty_line.getroot().text = "\n\t"
+
+        root.insert(0, empty_line.getroot())
+
+        root.insert(0, comment)
 
         tree.write(
             self.service_manifest,
