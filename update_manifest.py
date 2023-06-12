@@ -10,6 +10,7 @@ class ManifestHandler:
         self.product_manifest = ""
         self.service_manifest = ""
         self.sync_project = ""
+        self.view_changes = False
         self.__setup_arg_parser()
         self.__parser_args()
         self.RevisionDict = {}
@@ -39,12 +40,20 @@ class ManifestHandler:
             action="store",
             required=False,
         )
+        self.__parser.add_argument(
+            "-change",
+            dest="view_changes",
+            help="Visualize the changes without updating the manifest",
+            action="store_true",
+            required=False
+        )
 
     def __parser_args(self):
         args = self.__parser.parse_args()
         self.service_manifest = args.service_manifest
         self.product_manifest = args.product_manifest
         self.sync_project = args.sync_project
+        self.view_changes = args.view_changes
 
     def getRevision(self, projectPath):
         return self.RevisionDict[projectPath]
@@ -174,9 +183,13 @@ class ManifestHandler:
 
 def main():
     manifest_handler = ManifestHandler()
-    manifest_handler.check_output_manifest()
-    manifest_handler.update_manifest()
-    manifest_handler.check_output_manifest()
+    if manifest_handler.view_changes:
+        print("Displaying the changes occured in the service_manifest")
+        manifest_handler.check_output_manifest()
+    else:
+        manifest_handler.check_output_manifest()
+        manifest_handler.update_manifest()
+        manifest_handler.check_output_manifest()
     sys.exit(0)
 
 
