@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 import sys
 import xml.etree.ElementTree as ET
+import subprocess
 
 
 class ManifestHandler:
@@ -13,6 +14,8 @@ class ManifestHandler:
         self.view_changes = False
         self.add_project = []
         self.add_entries = False
+        self.url = ""
+        self.branch = ""
         self.__setup_arg_parser()
         self.__parser_args()
         self.RevisionDict = {}
@@ -64,6 +67,20 @@ class ManifestHandler:
             action="store_true",
             required=False
         )
+        self.__parser.add_argument(
+            "-u",
+            dest="url",
+            help="url of the external repository",
+            action="store",
+            required=False
+        )
+        self.__parser.add_argument(
+            "-b",
+            dest="branch",
+            help="branch to checkout",
+            action="store",
+            required=False
+        )
 
     def __parser_args(self):
         args = self.__parser.parse_args()
@@ -73,6 +90,8 @@ class ManifestHandler:
         self.view_changes = args.view_changes
         self.add_project = args.add_project
         self.add_entries = args.add_entries
+        self.url = args.url
+        self.branch = args.branch
 
     def getRevision(self, projectPath):
         return self.RevisionDict[projectPath]
@@ -104,6 +123,8 @@ class ManifestHandler:
             self.RevisionDict[path] = revision
 
     def update_manifest(self):
+        if self.url:
+            self.add_repo_info()
         if self.add_entries:
             self.add_missing_entries()
         self.initDicts(self.product_manifest)
@@ -274,6 +295,43 @@ class ManifestHandler:
                 ET.SubElement(service_root, "project", attrib=project.attrib)
                 print(f"'{name}' project added to the service_manifest")
 
+        service_tree.write(
+            self.service_manifest,
+            xml_declaration=True,
+            encoding="UTF-8"
+        )
+
+    def add_repo_info(self):
+        url = self.url
+        branch = ""
+        if self.branch:
+            branch = self.branch
+        else:
+            print("Defaulting to master branch")
+            branch = "master"
+
+        repo_name = url.split("/")[-1].split(".")[0]
+        command = ["git", "ls-remote", "--heads", url, branch]
+
+        try:
+            output = subprocess.check_output(command).decode("utf-8")
+            revision = output.split()[0]
+        except subprocess.CalledProcessError:
+            return None, None
+
+        service_parser = ET.XMLParser(
+                target=ET.TreeBuilder(insert_comments=True))
+        service_tree = ET.parse(self.service_manifest, service_parser)
+        service_root = service_tree.getroot()
+
+        for project in service_root.iter("project"):
+            path = project.attrib.get("path")
+            if path and path == repo_name:
+                old_revision = project.attrib["revision"]
+                project.attrib["revision"] = revision
+                print("Project for given url is found and revision is updated")
+                print(f"'{path}'    '{old_revision}' => '{revision}'")
+                break
         service_tree.write(
             self.service_manifest,
             xml_declaration=True,
