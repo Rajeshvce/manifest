@@ -12,6 +12,7 @@ class ManifestHandler:
         self.sync_project = ""
         self.view_changes = False
         self.add_project = []
+        self.add_entries = False
         self.__setup_arg_parser()
         self.__parser_args()
         self.RevisionDict = {}
@@ -56,6 +57,13 @@ class ManifestHandler:
             action="store",
             required=False
         )
+        self.__parser.add_argument(
+            "-full-sync",
+            dest="add_entries",
+            help="add the missing entries in the service_manifest",
+            action="store_true",
+            required=False
+        )
 
     def __parser_args(self):
         args = self.__parser.parse_args()
@@ -64,6 +72,7 @@ class ManifestHandler:
         self.sync_project = args.sync_project
         self.view_changes = args.view_changes
         self.add_project = args.add_project
+        self.add_entries = args.add_entries
 
     def getRevision(self, projectPath):
         return self.RevisionDict[projectPath]
@@ -95,6 +104,8 @@ class ManifestHandler:
             self.RevisionDict[path] = revision
 
     def update_manifest(self):
+        if self.add_entries:
+            self.add_missing_entries()
         self.initDicts(self.product_manifest)
         parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
         tree = ET.parse(self.service_manifest, parser)
@@ -205,11 +216,20 @@ class ManifestHandler:
 
         service_project_paths = set()
         for project in service_root.iter("project"):
-            path = project.attrib["path"]
+            path = ""
+            if "path" in project.attrib:
+                path = project.attrib["path"]
+            else:
+                path = project.attrib["name"]
             service_project_paths.add(path)
 
         for project in product_root.iter("project"):
-            path = project.attrib["path"]
+            path = ""
+            if "path" in project.attrib:
+                path = project.attrib["path"]
+            else:
+                path = project.attrib["name"]
+
             if path in self.add_project:
                 if path not in service_project_paths:
                     ET.SubElement(
@@ -217,6 +237,42 @@ class ManifestHandler:
                     print(f"'{path}' project added to the service_manifest")
                 else:
                     print(f"'{path}' is already present in service_manifest")
+
+        service_tree.write(
+            self.service_manifest,
+            xml_declaration=True,
+            encoding="UTF-8"
+        )
+
+    def add_missing_entries(self):
+        product_parser = ET.XMLParser(
+            target=ET.TreeBuilder(insert_comments=True))
+        product_tree = ET.parse(self.product_manifest, product_parser)
+        product_root = product_tree.getroot()
+
+        service_parser = ET.XMLParser(
+            target=ET.TreeBuilder(insert_comments=True))
+        service_tree = ET.parse(self.service_manifest, service_parser)
+        service_root = service_tree.getroot()
+
+        service_project_paths = set()
+        for project in service_root.iter("project"):
+            path = ""
+            if "path" not in project.attrib:
+                path = project.attrib["name"]
+            else:
+                path = project.attrib["path"]
+            service_project_paths.add(path)
+
+        for project in product_root.iter("project"):
+            path = project.attrib["path"]
+            name = project.attrib["name"]
+            if path not in service_project_paths:
+                ET.SubElement(service_root, "project", attrib=project.attrib)
+                print(f"'{path}' project added to the service_manifest")
+            elif name not in service_project_paths:
+                ET.SubElement(service_root, "project", attrib=project.attrib)
+                print(f"'{name}' project added to the service_manifest")
 
         service_tree.write(
             self.service_manifest,
