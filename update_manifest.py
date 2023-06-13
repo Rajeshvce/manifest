@@ -295,8 +295,12 @@ class ManifestHandler:
 
         service_project_paths = set()
         for project in service_root.iter("project"):
-            path = project.attrib.get("path", project.attrib.get("name", ""))
-            service_project_paths.add(path)
+            path = project.attrib.get("path", "")
+            name = project.attrib.get("name", "")
+            if path:
+                service_project_paths.add(path)
+            elif name:
+                service_project_paths.add(name)
 
         for project in product_root.iter("project"):
             path = project.attrib.get("path", "")
