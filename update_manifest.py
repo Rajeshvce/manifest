@@ -268,10 +268,16 @@ class ManifestHandler:
             else:
                 path = project.attrib["name"]
 
+            flag = True
             if path in self.add_project:
                 if path not in service_project_paths:
-                    ET.SubElement(
+                    if flag:
+                        newline = ET.Element(None)
+                        newline.text = "\n\t"
+                        flag = False
+                    subelement = ET.SubElement(
                             service_root, "project", attrib=project.attrib)
+                    subelement.tail = "\n\t"
                     print(f"'{path}' project added to the service_manifest")
                 else:
                     print(f"'{path}' is already present in service_manifest")
@@ -307,7 +313,9 @@ class ManifestHandler:
             name = project.attrib.get("name", "")
             if (path not in service_project_paths and
                name not in service_project_paths):
-                ET.SubElement(service_root, "project", attrib=project.attrib)
+                subelement = ET.SubElement(service_root,
+                                           "project", attrib=project.attrib)
+                subelement.tail = "\n\t"
                 if path:
                     print(f"'{path}' project added to the service_manifest")
                 elif name:
