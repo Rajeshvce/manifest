@@ -295,22 +295,23 @@ class ManifestHandler:
 
         service_project_paths = set()
         for project in service_root.iter("project"):
-            path = ""
-            if "path" not in project.attrib:
-                path = project.attrib["name"]
-            else:
-                path = project.attrib["path"]
-            service_project_paths.add(path)
+            path = project.attrib.get("path", "")
+            name = project.attrib.get("name", "")
+            if path:
+                service_project_paths.add(path)
+            elif name:
+                service_project_paths.add(name)
 
         for project in product_root.iter("project"):
-            path = project.attrib["path"]
-            name = project.attrib["name"]
-            if path not in service_project_paths:
+            path = project.attrib.get("path", "")
+            name = project.attrib.get("name", "")
+            if (path not in service_project_paths and
+               name not in service_project_paths):
                 ET.SubElement(service_root, "project", attrib=project.attrib)
-                print(f"'{path}' project added to the service_manifest")
-            elif name not in service_project_paths:
-                ET.SubElement(service_root, "project", attrib=project.attrib)
-                print(f"'{name}' project added to the service_manifest")
+                if path:
+                    print(f"'{path}' project added to the service_manifest")
+                elif name:
+                    print(f"'{name}' project added to the service_manifest")
 
         service_tree.write(
             self.service_manifest,
@@ -370,4 +371,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
